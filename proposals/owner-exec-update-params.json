@@ -1,0 +1,7 @@
+{
+  "messages": [{
+    "@type": "/vaas.consumer.v1.MsgUpdateParams",
+    "authority": "<owner-authority>",
+    "params": "<current-params>"
+  }]
+}

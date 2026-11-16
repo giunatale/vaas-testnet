@@ -1,0 +1,16 @@
+{
+  "messages": [{
+    "@type": "/vaas.provider.v1.MsgUpdateConsumer",
+    "owner": "<gov-authority>",
+    "consumer_id": "<consumer-id>",
+    "new_chain_id": "<chain-id-the-client-tracks>"
+  }, {
+    "@type": "/vaas.provider.v1.MsgResumeConsumer",
+    "authority": "<gov-authority>",
+    "consumer_id": "<consumer-id>"
+  }],
+  "metadata": "",
+  "deposit": "10000000uatone",
+  "title": "Rename consumer <consumer-id> to the chain id its client tracks and resume it",
+  "summary": "After a revision bump on the consumer: governance is the one signer that may rename a launched or paused consumer."
+}

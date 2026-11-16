@@ -1,0 +1,12 @@
+{
+  "messages": [{
+    "@type": "/vaas.provider.v1.MsgSetConsumerFeesPerBlock",
+    "authority": "<gov-authority>",
+    "consumer_id": "<consumer-id>",
+    "amount": "2000"
+  }],
+  "metadata": "",
+  "deposit": "10000000uatone",
+  "title": "Raise consumer <consumer-id>'s fee per block to 2000",
+  "summary": "The amount is in the fee denom and must exceed the module-wide fees_per_block_amount; an empty amount clears the override."
+}

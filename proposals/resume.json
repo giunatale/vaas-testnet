@@ -1,0 +1,11 @@
+{
+  "messages": [{
+    "@type": "/vaas.provider.v1.MsgResumeConsumer",
+    "authority": "<gov-authority>",
+    "consumer_id": "<consumer-id>"
+  }],
+  "metadata": "",
+  "deposit": "10000000uatone",
+  "title": "Resume consumer <consumer-id>",
+  "summary": "Why the pause is over: the challenge that caused it, or the refusal that was withdrawn."
+}

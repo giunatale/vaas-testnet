@@ -1,0 +1,11 @@
+{
+  "messages": [{
+    "@type": "/vaas.provider.v1.MsgUpdateParams",
+    "authority": "<gov-authority>",
+    "equivocation_execution_delay": "604800s"
+  }],
+  "metadata": "",
+  "deposit": "10000000uatone",
+  "title": "Set the equivocation execution delay to 7 days",
+  "summary": "MsgUpdateParams is a diff: only the fields named change. Name one field per line and leave the rest out."
+}

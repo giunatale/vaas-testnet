@@ -1,0 +1,11 @@
+{
+  "messages": [{
+    "@type": "/vaas.provider.v1.MsgRemoveConsumer",
+    "signer": "<gov-authority>",
+    "consumer_id": "<consumer-id>"
+  }],
+  "metadata": "",
+  "deposit": "10000000uatone",
+  "title": "Remove consumer <consumer-id>",
+  "summary": "Why the consumer leaves the provider's security. A punishment of its validators that is waiting on this vote is cancelled if it passes."
+}

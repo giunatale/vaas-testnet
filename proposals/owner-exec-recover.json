@@ -1,0 +1,8 @@
+{
+  "messages": [{
+    "@type": "/ibc.core.client.v1.MsgRecoverClient",
+    "subject_client_id": "<frozen-provider-client-id>",
+    "substitute_client_id": "<substitute-client-id>",
+    "signer": "<owner-authority>"
+  }]
+}

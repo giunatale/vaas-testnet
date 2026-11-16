@@ -1,0 +1,12 @@
+{
+  "messages": [{
+    "@type": "/vaas.provider.v1.MsgFundConsumerFeePool",
+    "signer": "<gov-authority>",
+    "consumer_id": "<consumer-id>",
+    "amount": {"denom": "uphoton", "amount": "20000000"}
+  }],
+  "metadata": "",
+  "deposit": "10000000uatone",
+  "title": "Subsidize consumer <consumer-id> from the community pool",
+  "summary": "Signed by the governance authority, the deposit is pulled from the community pool and the distribution module account holds the shares."
+}

@@ -1,0 +1,12 @@
+{
+  "messages": [{
+    "@type": "/vaas.provider.v1.MsgWithdrawConsumerFeePool",
+    "signer": "<gov-authority>",
+    "consumer_id": "<consumer-id>",
+    "amount": [{"denom": "uphoton", "amount": "20000000"}]
+  }],
+  "metadata": "",
+  "deposit": "10000000uatone",
+  "title": "Return the community pool's subsidy to consumer <consumer-id>",
+  "summary": "Withdraws against the distribution module account's shares, back to the community pool."
+}

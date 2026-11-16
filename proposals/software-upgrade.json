@@ -1,0 +1,15 @@
+{
+  "messages": [{
+    "@type": "/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade",
+    "authority": "<gov-authority>",
+    "plan": {
+      "name": "<upgrade-name>",
+      "height": "<halt-height>",
+      "info": ""
+    }
+  }],
+  "metadata": "",
+  "deposit": "10000000uatone",
+  "title": "Halt at height <halt-height> for <upgrade-name>",
+  "summary": "Neither app registers an upgrade handler: every node halts at the height, and the next binary starts only with --unsafe-skip-upgrades <halt-height>. Prefer halt-height in app.toml for a coordinated stop."
+}

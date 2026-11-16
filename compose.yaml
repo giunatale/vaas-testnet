@@ -1,0 +1,233 @@
+# The VAAS test network as code, in its single-host form (the localnet):
+# four AtomOne validators, three VAAS consumers run by the same four
+# validators, and one ts-relayer per consumer. Every chain home lives under
+# ./data (gitignored); `make` drives the order (see README).
+# Consumers, relayers and the init tools sit behind profiles, so a plain
+# `docker compose up` starts the provider only.
+name: vaas-testnet
+
+x-node: &node
+  restart: unless-stopped
+  networks: [vaas]
+  stop_grace_period: 60s
+
+x-relayer: &relayer
+  image: ${RELAYER_IMAGE}
+  restart: unless-stopped
+  command: ["ibc-v2-ts-relayer", "relay"]
+  networks: [vaas]
+  cap_add: [IPC_LOCK]
+  environment: &relayer-env
+    RELAYER_BASE_DIR: /data
+    DB_FILE: /data/relayer.db
+    ERROR_LOG_FILE: /data/error.log
+    COMBINED_LOG_FILE: /data/combined.log
+    LOG_LEVEL: info
+    RELAY_MAX_AGE_SRC: ${RELAYER_MAX_AGE:-3600}
+    RELAY_MAX_AGE_DEST: ${RELAYER_MAX_AGE:-3600}
+
+networks:
+  vaas:
+    name: vaas-testnet
+
+services:
+
+  atomone-0:
+    <<: *node
+    image: ${ATOMONE_IMAGE}
+    hostname: atomone-0
+    command: ["atomoned", "start", "--home", "/home/node"]
+    volumes: ["./data/atomone/val0:/home/node"]
+    ports: ["26657:26657", "1317:1317", "9090:9090"]
+
+  atomone-1:
+    <<: *node
+    image: ${ATOMONE_IMAGE}
+    hostname: atomone-1
+    command: ["atomoned", "start", "--home", "/home/node"]
+    volumes: ["./data/atomone/val1:/home/node"]
+
+  atomone-2:
+    <<: *node
+    image: ${ATOMONE_IMAGE}
+    hostname: atomone-2
+    command: ["atomoned", "start", "--home", "/home/node"]
+    volumes: ["./data/atomone/val2:/home/node"]
+
+  atomone-3:
+    <<: *node
+    image: ${ATOMONE_IMAGE}
+    hostname: atomone-3
+    command: ["atomoned", "start", "--home", "/home/node"]
+    volumes: ["./data/atomone/val3:/home/node"]
+
+  ref-0:
+    <<: *node
+    image: ${CONSUMER_IMAGE}
+    hostname: ref-0
+    profiles: [ref]
+    environment: {VAAS_BECH32_PREFIX: "${REF_PREFIX}"}
+    command: ["consumer", "start", "--home", "/home/node"]
+    volumes: ["./data/ref/val0:/home/node"]
+    ports: ["26667:26657", "1318:1317", "9092:9090"]
+
+  ref-1:
+    <<: *node
+    image: ${CONSUMER_IMAGE}
+    hostname: ref-1
+    profiles: [ref]
+    environment: {VAAS_BECH32_PREFIX: "${REF_PREFIX}"}
+    command: ["consumer", "start", "--home", "/home/node"]
+    volumes: ["./data/ref/val1:/home/node"]
+
+  ref-2:
+    <<: *node
+    image: ${CONSUMER_IMAGE}
+    hostname: ref-2
+    profiles: [ref]
+    environment: {VAAS_BECH32_PREFIX: "${REF_PREFIX}"}
+    command: ["consumer", "start", "--home", "/home/node"]
+    volumes: ["./data/ref/val2:/home/node"]
+
+  ref-3:
+    <<: *node
+    image: ${CONSUMER_IMAGE}
+    hostname: ref-3
+    profiles: [ref]
+    environment: {VAAS_BECH32_PREFIX: "${REF_PREFIX}"}
+    command: ["consumer", "start", "--home", "/home/node"]
+    volumes: ["./data/ref/val3:/home/node"]
+
+  gno-0:
+    <<: *node
+    image: ${GNOSHARD_IMAGE}
+    hostname: gno-0
+    profiles: [gno]
+    environment: {GNOSHARD_BECH32_PREFIX: "${GNO_PREFIX}"}
+    command: ["gnoshardd", "start", "--home", "/home/node"]
+    volumes: ["./data/gno/val0:/home/node"]
+    ports: ["26677:26657", "1319:1317", "9093:9090"]
+
+  gno-1:
+    <<: *node
+    image: ${GNOSHARD_IMAGE}
+    hostname: gno-1
+    profiles: [gno]
+    environment: {GNOSHARD_BECH32_PREFIX: "${GNO_PREFIX}"}
+    command: ["gnoshardd", "start", "--home", "/home/node"]
+    volumes: ["./data/gno/val1:/home/node"]
+
+  gno-2:
+    <<: *node
+    image: ${GNOSHARD_IMAGE}
+    hostname: gno-2
+    profiles: [gno]
+    environment: {GNOSHARD_BECH32_PREFIX: "${GNO_PREFIX}"}
+    command: ["gnoshardd", "start", "--home", "/home/node"]
+    volumes: ["./data/gno/val2:/home/node"]
+
+  gno-3:
+    <<: *node
+    image: ${GNOSHARD_IMAGE}
+    hostname: gno-3
+    profiles: [gno]
+    environment: {GNOSHARD_BECH32_PREFIX: "${GNO_PREFIX}"}
+    command: ["gnoshardd", "start", "--home", "/home/node"]
+    volumes: ["./data/gno/val3:/home/node"]
+
+  photon-0:
+    <<: *node
+    image: ${CONSUMER_IMAGE}
+    hostname: photon-0
+    profiles: [photon]
+    environment: {VAAS_BECH32_PREFIX: "${PHOTON_PREFIX}"}
+    command: ["consumer", "start", "--home", "/home/node"]
+    volumes: ["./data/photon/val0:/home/node"]
+    ports: ["26687:26657", "1320:1317", "9094:9090"]
+
+  photon-1:
+    <<: *node
+    image: ${CONSUMER_IMAGE}
+    hostname: photon-1
+    profiles: [photon]
+    environment: {VAAS_BECH32_PREFIX: "${PHOTON_PREFIX}"}
+    command: ["consumer", "start", "--home", "/home/node"]
+    volumes: ["./data/photon/val1:/home/node"]
+
+  photon-2:
+    <<: *node
+    image: ${CONSUMER_IMAGE}
+    hostname: photon-2
+    profiles: [photon]
+    environment: {VAAS_BECH32_PREFIX: "${PHOTON_PREFIX}"}
+    command: ["consumer", "start", "--home", "/home/node"]
+    volumes: ["./data/photon/val2:/home/node"]
+
+  photon-3:
+    <<: *node
+    image: ${CONSUMER_IMAGE}
+    hostname: photon-3
+    profiles: [photon]
+    environment: {VAAS_BECH32_PREFIX: "${PHOTON_PREFIX}"}
+    command: ["consumer", "start", "--home", "/home/node"]
+    volumes: ["./data/photon/val3:/home/node"]
+
+  relayer-ref:
+    <<: *relayer
+    hostname: relayer-ref
+    profiles: [relayer-ref]
+    volumes:
+      - ./data/relayer-ref/db:/data
+      - ./data/relayer-ref/keyrings:/root/.local/share/keyrings
+
+  relayer-gno:
+    <<: *relayer
+    hostname: relayer-gno
+    profiles: [relayer-gno]
+    volumes:
+      - ./data/relayer-gno/db:/data
+      - ./data/relayer-gno/keyrings:/root/.local/share/keyrings
+
+  relayer-photon:
+    <<: *relayer
+    hostname: relayer-photon
+    profiles: [relayer-photon]
+    volumes:
+      - ./data/relayer-photon/db:/data
+      - ./data/relayer-photon/keyrings:/root/.local/share/keyrings
+
+  # One-shot init containers: `docker compose run --rm <tool> <script>`.
+  atomone-tools:
+    image: ${ATOMONE_IMAGE}
+    profiles: [tools]
+    networks: [vaas]
+    entrypoint: ["bash"]
+    env_file: [config/network.env, "config/${PROFILE:-localnet}.env"]
+    volumes: ["./data:/data", "./scripts:/scripts:ro"]
+
+  ref-tools:
+    image: ${CONSUMER_IMAGE}
+    profiles: [tools]
+    networks: [vaas]
+    entrypoint: ["bash"]
+    env_file: [config/network.env, "config/${PROFILE:-localnet}.env"]
+    environment: {VAAS_BECH32_PREFIX: "${REF_PREFIX}", CONSUMER: ref}
+    volumes: ["./data:/data", "./scripts:/scripts:ro"]
+
+  gno-tools:
+    image: ${GNOSHARD_IMAGE}
+    profiles: [tools]
+    networks: [vaas]
+    entrypoint: ["bash"]
+    env_file: [config/network.env, "config/${PROFILE:-localnet}.env"]
+    environment: {GNOSHARD_BECH32_PREFIX: "${GNO_PREFIX}", CONSUMER: gno}
+    volumes: ["./data:/data", "./scripts:/scripts:ro"]
+
+  photon-tools:
+    image: ${CONSUMER_IMAGE}
+    profiles: [tools]
+    networks: [vaas]
+    entrypoint: ["bash"]
+    env_file: [config/network.env, "config/${PROFILE:-localnet}.env"]
+    environment: {VAAS_BECH32_PREFIX: "${PHOTON_PREFIX}", CONSUMER: photon}
+    volumes: ["./data:/data", "./scripts:/scripts:ro"]
