@@ -89,9 +89,9 @@ the protocol needs watched, beyond node health:
   `app.toml`. Neither app registers an upgrade handler, so a passed
   `MsgSoftwareUpgrade` halts every node and the next binary starts only with
   `--unsafe-skip-upgrades <height>`.
-- **Relayer restarts:** a restarted relayer container keeps its keyring with
-  the keyring-restart fix in the relayer source; an image built from
-  allinbits/ibc-v2-ts-relayer before that fix merges loses it on restart.
+- **Relayer restarts:** a restarted relayer container keeps its keyring
+  since allinbits/ibc-v2-ts-relayer#43; an image built from an older commit
+  loses it on restart.
 - **Proposal and owner-exec bodies** for resume, removal, parameter changes,
   fee-pool subsidies and client recovery are in `proposals/`
   (`proposals/README.md`); `make propose` and `make owner-exec` run them on
@@ -101,7 +101,6 @@ the protocol needs watched, beyond node health:
 
 | Item | State |
 |---|---|
-| ts-relayer fixes | the packet-routing fix is in allinbits `main` (#42); the keyring-restart fix (#43) is open, so the relayer builds from `giunatale/ibc-v2-ts-relayer@vaas-testnet` until it merges |
 | VAAS release | integration branch `pre-mvp`; the 33 PRs merge first |
 | AtomOne wiring | draft PR atomone-hub/atomone#393 against VAAS `main` |
 | atomone-sdk | pseudo-version of `main` until its next release |
