@@ -101,11 +101,10 @@ the protocol needs watched, beyond node health:
 
 | Item | State |
 |---|---|
-| ts-relayer fixes | fork `giunatale/ibc-v2-ts-relayer@vaas-testnet` until allinbits/ibc-v2-ts-relayer#42 and #43 merge |
+| ts-relayer fixes | the packet-routing fix is in allinbits `main` (#42); the keyring-restart fix (#43) is open, so the relayer builds from `giunatale/ibc-v2-ts-relayer@vaas-testnet` until it merges |
 | VAAS release | integration branch `pre-mvp`; the 33 PRs merge first |
 | AtomOne wiring | draft PR atomone-hub/atomone#393 against VAAS `main` |
 | atomone-sdk | pseudo-version of `main` until its next release |
-| gnovm fixes | fork `giunatale/gnovm@gnoroot` until ignite/gnovm#15 and #16 merge |
-| gnoshard | `giunatale/gnoshard`, on the gnovm fork until ignite/gnovm#15 and #16 merge |
+| gnoshard | `giunatale/gnoshard` on ignite/gnovm `main` (the gnovm fixes merged as #15 and #16) |
 | consumer key assignment | not exercised on the localnet yet |
 | parameters | `config/devnet.env`; to refine with devops for the servers |

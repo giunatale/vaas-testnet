@@ -33,8 +33,8 @@ set); the image sources in `config/sources.env`.
 |---|---|---|---|
 | `vaas-testnet/atomone` | AtomOne wired as the VAAS provider | `vaas-pre-mvp` (giunatale/atomone) | 0a898191 |
 | `vaas-testnet/vaas-consumer` | VAAS with every open pull request merged | `pre-mvp` (giunatale/vaas) | fa8d1585 |
-| `vaas-testnet/gnoshard` | gnoshard (x/gnovm from `giunatale/gnovm@gnoroot`) | `main` (giunatale/gnoshard) | 774e9f51 |
-| `vaas-testnet/ts-relayer` | ibc-v2-ts-relayer with the v2 packet-routing and keyring-restart fixes | `vaas-testnet` (giunatale/ibc-v2-ts-relayer) | d3f28b6b |
+| `vaas-testnet/gnoshard` | gnoshard (x/gnovm from ignite/gnovm `main`) | `main` (giunatale/gnoshard) | 1baa7399 |
+| `vaas-testnet/ts-relayer` | ibc-v2-ts-relayer `main` with the keyring-restart fix | `vaas-testnet` (giunatale/ibc-v2-ts-relayer) | 6d86b73f |
 
 `make sources-bump` moves every pinned commit to the head of its branch;
 review the diff of `config/sources.env`, then `make images`. To build one
@@ -153,9 +153,8 @@ commits. The AtomOne image accepts voting periods down to 60 s
 
 - Consumer nodes sign with their validator's AtomOne consensus key (no key
   assignment). Fine on a localnet; the devnet should assign consumer keys.
-- The relayer builds from `giunatale/ibc-v2-ts-relayer@vaas-testnet`: two
-  fixes not yet in allinbits/ibc-v2-ts-relayer (packets of other paths
-  sharing a block were relayed to the wrong consumer; a restarted relayer
-  container lost its keyring).
-- gnoshard depends on three fixes in the gnovm fork; the VAAS and AtomOne
-  sources are integration branches, not releases.
+- The relayer builds from `giunatale/ibc-v2-ts-relayer@vaas-testnet`:
+  allinbits `main` plus one fix not yet merged
+  (allinbits/ibc-v2-ts-relayer#43: a restarted relayer container lost its
+  keyring).
+- The VAAS and AtomOne sources are integration branches, not releases.
