@@ -11,6 +11,7 @@
 #   scripts/testnet.sh relayer-restart    restart every relayer, then the delegation check
 #   scripts/testnet.sh fee-payouts        an epoch's fee leaves every pool and reaches every validator
 #   scripts/testnet.sh key-assignment [C I] validator I (3) assigns a fresh key on consumer C (ref)
+#   scripts/testnet.sh downtime [C I]     validator I's (2) node on C (ref) stops: accusation, refused challenge, slash
 #   scripts/testnet.sh propose F k=v..    a provider proposal from proposals/, every validator votes yes
 #   scripts/testnet.sh owner-exec C F k=v.. a consumer owner action from proposals/
 #   scripts/testnet.sh check-proposals    every template decodes against the running binaries
@@ -341,11 +342,25 @@ relayer_restart() {
 
 # --- drills -----------------------------------------------------------------
 val_hex() { jq -r .address "data/atomone/val$1/config/priv_validator_key.json"; }   # provider consensus address, hex
+val_oper() { V "$1" keys show val --bech val -a --keyring-backend test; }
 val_acct() { V "$1" keys show val -a --keyring-backend test; }
+val_tokens() { P query staking validator "$1" -o json | jq -r '.validator.tokens // .tokens'; }
+phase() { P query vaasprovider consumer-chain "$1" -o json | jq -r .phase; }
 cid_of() { cat "data/$1.consumer_id"; }
 b64hex() { dc exec -T atomone-0 sh -c "echo '$1' | base64 -d | od -An -tx1 | tr -d ' \n'" | tr '[:lower:]' '[:upper:]'; }
 balance_at() { # address denom height
 	P query bank balances "$1" --height "$3" -o json | jq -r --arg d "$2" '[.balances[] | select(.denom == $d) | .amount][0] // "0"'
+}
+# pending_slash CID HEX: the pending downtime slash naming the provider
+# validator HEX on consumer CID, as JSON, or nothing.
+pending_slash() {
+	local e a
+	while read -r e; do
+		[ -n "$e" ] || continue
+		a="$(b64hex "$(jq -r .provider_cons_addr <<<"$e")")"
+		[ "$a" = "$2" ] && { echo "$e"; return 0; }
+	done < <(P query vaasprovider pending-downtime-slashes "$1" -o json | jq -c '.slashes[]?')
+	return 0
 }
 pending_windows() { # cid hex: the window start of every pending accusation naming hex
 	local e
@@ -354,6 +369,48 @@ pending_windows() { # cid hex: the window start of every pending accusation nami
 		[ "$(b64hex "$(jq -r .provider_cons_addr <<<"$e")")" = "$2" ] && jq -r .window_start_height <<<"$e"
 	done < <(P query vaasprovider pending-downtime-slashes "$1" -o json | jq -c '.slashes[]?')
 	return 0
+}
+wait_pending_slash() { # cid hex seconds
+	local e left="$3"
+	while [ "$left" -gt 0 ]; do
+		e="$(pending_slash "$1" "$2")"; [ -n "$e" ] && { echo "$e"; return 0; }
+		sleep 5; left=$(( left - 5 ))
+	done
+	die "no downtime accusation against $2 on consumer $1 within $3 s"
+}
+
+# challenge C CID I SLASH_JSON: answers the pending accusation against
+# validator I on consumer C with the commit of the first block it says I
+# missed. Prints the provider's verdict; returns non-zero when it refuses.
+challenge() {
+	local c="$1" cid="$2" i="$3" e="$4" ws bytes bit claimed provcons conscons client T th vh nvh err
+	ws="$(jq -r .window_start_height <<<"$e")"
+	bytes="$(dc exec -T atomone-0 sh -c "echo '$(jq -r .missed_blocks_bitmap <<<"$e")' | base64 -d | od -An -tu1")"
+	bit=0; for b in $bytes; do
+		if [ "$b" -ne 0 ]; then for k in 0 1 2 3 4 5 6 7; do [ $(( b >> k & 1 )) = 1 ] && break; done; bit=$(( bit + k )); break; fi
+		bit=$(( bit + 8 ))
+	done
+	claimed=$(( ws + bit ))
+	provcons="$(V "$i" comet show-address 2>/dev/null || V "$i" tendermint show-address)"
+	conscons="$(P query vaasprovider validator-consumer-key "$cid" "$provcons" -o json 2>/dev/null | jq -r '.consumer_address // empty')"
+	[ -n "$conscons" ] || conscons="$provcons"
+	client="$(P query vaasprovider consumer-chain "$cid" -o json | jq -r .client_id)"
+	T=""
+	for th in $(P query ibc client consensus-state-heights "$client" --limit 5000 -o json | jq -r '.consensus_state_heights[].revision_height' | sort -rn); do
+		[ "$th" -lt $(( claimed + 1 )) ] || continue
+		vh="$(dc --profile "$c" exec -T "$c-0" curl -s "localhost:26657/block?height=$th" | jq -r .result.block.header.validators_hash)"
+		nvh="$(dc --profile "$c" exec -T "$c-0" curl -s "localhost:26657/block?height=$th" | jq -r .result.block.header.next_validators_hash)"
+		[ "$vh" = "$nvh" ] && { T="$th"; break; }
+	done
+	[ -n "$T" ] || die "no trusted height below $(( claimed + 1 )) on $client"
+	echo "  challenge: block $claimed of window $ws, trusted height $T"
+	err="$(mktemp data/.challenge.XXXXXX)"
+	if tx P tx vaasprovider challenge-consumer-downtime "$cid" "$conscons" "$claimed" \
+		--consumer-rpc "http://$c-0:26657" --trusted-height "$T" --from user --keyring-backend test \
+		--chain-id "$PROVIDER_CHAIN_ID" --gas 5000000 --fees "500000${PROVIDER_FEE_DENOM}" 2>"$err"; then
+		rm -f "$err"; return 0
+	fi
+	sed 's/^/  /' "$err"; rm -f "$err"; return 1
 }
 
 # fee_payouts: at the next epoch block every consumer's pool pays its epoch
@@ -416,6 +473,38 @@ key_assignment() {
 	sleep $(( DOWNTIME_SIGNED_BLOCKS_WINDOW * ${TIMEOUT_COMMIT%s} + 45 ))
 	[ -z "$(pending_windows "$cid" "$(val_hex "$i")")" ] || die "$c: validator $i was accused of downtime across the key switch"
 	echo "  no downtime accusation across the switch"
+}
+
+# downtime C I: validator I's node on consumer C stops. C reports it, a
+# challenge against the true accusation is refused, the slash matures and
+# lowers I's stake without jailing it, and once the node is back no later
+# window accuses it.
+downtime() {
+	local c="${1:-ref}" i="${2:-2}" cid hex oper before after e restart_h ws v
+	cid="$(cid_of "$c")"; hex="$(val_hex "$i")"; oper="$(val_oper "$i")"
+	log "downtime: $c-$i stops; $c accuses validator $i; the accusation holds and the slash executes"
+	before="$(val_tokens "$oper")"
+	dc --profile "$c" stop "$c-$i" >/dev/null 2>&1
+	echo "  $c-$i stopped; validator $i has $before tokens"
+	e="$(wait_pending_slash "$cid" "$hex" 360)"
+	echo "  accusation: window $(jq -r .window_start_height <<<"$e") +$(jq -r .span <<<"$e"), $(jq -r .slash_tokens <<<"$e") tokens, matures $(jq -r .matures_at <<<"$e")"
+	dc --profile "$c" start "$c-$i" >/dev/null 2>&1
+	restart_h="$(height "$c-0")"
+	if challenge "$c" "$cid" "$i" "$e"; then die "a challenge against a true accusation was accepted"; fi
+	echo "  the challenge was refused: the commit carries no signature from validator $i"
+	[ "$(phase "$cid")" = CONSUMER_PHASE_LAUNCHED ] || die "$c left LAUNCHED"
+	for _ in $(seq 1 $(( ${DOWNTIME_CHALLENGE_WINDOW%s} / 5 + 24 ))); do
+		after="$(val_tokens "$oper")"; [ "$after" -lt "$before" ] && break; sleep 5
+	done
+	[ "$after" -lt "$before" ] || die "the slash never executed ($before tokens)"
+	v="$(P query staking validator "$oper" -o json)"
+	echo "  slashed: $before -> $after tokens; $(jq -r '.validator.status // .status' <<<"$v"), jailed $(jq -r '.validator.jailed // .jailed // false' <<<"$v")"
+	[ "$(jq -r '.validator.jailed // .jailed // false' <<<"$v")" = false ] || die "a downtime slash jailed validator $i"
+	sleep $(( DOWNTIME_SIGNED_BLOCKS_WINDOW * 2 * ${TIMEOUT_COMMIT%s} + 30 ))
+	for ws in $(pending_windows "$cid" "$hex"); do
+		[ "$ws" -lt "$restart_h" ] || die "validator $i accused for window $ws, after its node came back at $restart_h"
+	done
+	echo "  no accusation for a window that starts after the node came back (height $restart_h)"
 }
 
 # --- governance and owner actions ------------------------------------------
@@ -523,6 +612,7 @@ case "${1:-}" in
 	relayer-restart) relayer_restart ;;
 	fee-payouts) fee_payouts ;;
 	key-assignment) key_assignment "${2:-ref}" "${3:-3}" ;;
+	downtime) downtime "${2:-ref}" "${3:-2}" ;;
 	propose) shift; propose "$@" ;;
 	owner-exec) shift; owner_exec "$@" ;;
 	check-proposals) check_proposals ;;
