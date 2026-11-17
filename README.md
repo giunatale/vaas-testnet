@@ -52,6 +52,7 @@ make delegate        # just the delegation check, repeatable (smoke runs once pe
 make propose F=proposals/params-diff.json   # a provider proposal, every validator votes yes (proposals/README.md)
 make check-proposals # every governance and owner template decodes against the running binaries
 make status          # heights, consumer phases, liveness, fee pools, relayers
+make drills          # downtime, forged accusation, relayer restart (see Drills)
 ```
 
 `make up` takes about twelve minutes. Every step prints a `###` line; a failing
@@ -133,7 +134,9 @@ Each drill leaves the network running and can be repeated.
 | Target | What happens | About |
 |---|---|---|
 | `make downtime C=ref V=2` | Validator 2's node on the consumer stops. The consumer accuses it; a challenge against the true accusation is refused (the commit carries no signature from it); the slash matures after the challenge window and lowers its stake without jailing it; once the node is back, no later window accuses it. | 8 min |
+| `make forge-challenge V=1` | Every forge node is restarted reporting validator 1 absent for two windows while it signs (`data/forge/lie.env`). The provider queues the forged accusation; a challenge proves from the real commits that it signed, which pauses the forge consumer and cancels the slash without touching the stake; a governance proposal resumes the consumer once the lie is over, and it acknowledges validator-set packets again. | 10 min |
 | `make relayer-restart` | Every relayer container restarts; none may log an error, and a new delegation must reach every consumer through them. | 2 min |
+| `make drills` | The three in turn. | 20 min |
 
 The accusations, slashes and challenges are the provider's `pending-downtime-slashes`,
 `challenge-consumer-downtime` and the consumer's downtime windows; the

@@ -12,6 +12,8 @@
 #   scripts/testnet.sh fee-payouts        an epoch's fee leaves every pool and reaches every validator
 #   scripts/testnet.sh key-assignment [C I] validator I (3) assigns a fresh key on consumer C (ref)
 #   scripts/testnet.sh downtime [C I]     validator I's (2) node on C (ref) stops: accusation, refused challenge, slash
+#   scripts/testnet.sh forge-challenge [I] the forge accuses validator I (1) falsely: challenge, pause, resume
+#   scripts/testnet.sh drills             downtime, forge-challenge, relayer-restart
 #   scripts/testnet.sh propose F k=v..    a provider proposal from proposals/, every validator votes yes
 #   scripts/testnet.sh owner-exec C F k=v.. a consumer owner action from proposals/
 #   scripts/testnet.sh check-proposals    every template decodes against the running binaries
@@ -507,6 +509,43 @@ downtime() {
 	echo "  no accusation for a window that starts after the node came back (height $restart_h)"
 }
 
+# forge_challenge I: every forge node reports validator I absent for 60
+# blocks. The provider queues the forged accusation; a challenge proves from
+# the real commits that I signed, which pauses the forge consumer and cancels
+# the slash; governance resumes the consumer once the lie is over.
+forge_challenge() {
+	local c=forge i="${1:-1}" cid hex chex oper before e h from until claimed W last ack0 ack1 n=0
+	cid="$(cid_of "$c")"; hex="$(val_hex "$i")"; oper="$(val_oper "$i")"
+	chex="$(jq -r .address "data/$c/val$i/config/priv_validator_key.json")"
+	W="$DOWNTIME_SIGNED_BLOCKS_WINDOW"
+	log "forge: the forge consumer reports validator $i absent while it signs"
+	before="$(val_tokens "$oper")"
+	h="$(height forge-0)"; from=$(( h + 20 )); until=$(( from + 2 * W - 1 ))
+	printf 'FORGE_ABSENT_ADDRESS=%s\nFORGE_FROM_HEIGHT=%s\nFORGE_UNTIL_HEIGHT=%s\n' "$chex" "$from" "$until" > data/forge/lie.env
+	dc --profile forge up -d --force-recreate forge-0 forge-1 forge-2 forge-3 >/dev/null 2>&1
+	echo "  forge nodes restarted lying about $chex for heights $from..$until"
+	e="$(wait_pending_slash "$cid" "$hex" 480)"
+	echo "  forged accusation queued: window $(jq -r .window_start_height <<<"$e"), $(jq -r .slash_tokens <<<"$e") tokens"
+	challenge "$c" "$cid" "$i" "$e" || die "the challenge against the forged accusation was refused"
+	[ "$(phase "$cid")" = CONSUMER_PHASE_PAUSED ] || die "forge is $(phase "$cid"), expected PAUSED"
+	[ -z "$(pending_windows "$cid" "$hex")" ] || die "the forged accusation is still pending"
+	[ "$(val_tokens "$oper")" = "$before" ] || die "validator $i lost stake to a forged accusation"
+	echo "  challenge accepted: forge PAUSED, accusation cancelled, validator $i keeps $before tokens"
+	last=$(( ( (until - 1) / W ) * W + W + 5 ))
+	wait_height forge-0 "$last" "$FORGE_CHAIN_ID (past the lie's last window)"
+	propose proposals/resume.json "consumer-id=$cid"
+	for _ in $(seq 1 20); do [ "$(phase "$cid")" = CONSUMER_PHASE_LAUNCHED ] && break; sleep 3; done
+	[ "$(phase "$cid")" = CONSUMER_PHASE_LAUNCHED ] || die "forge did not resume"
+	ack0="$(P query vaasprovider consumer-liveness "$cid" -o json | jq -r .last_ack_time)"
+	for _ in $(seq 1 $(( BLOCKS_PER_EPOCH * 4 ))); do
+		ack1="$(P query vaasprovider consumer-liveness "$cid" -o json | jq -r .last_ack_time)"
+		[ "$ack1" != "$ack0" ] && { n=$(( n + 1 )); ack0="$ack1"; [ "$n" -ge 2 ] && break; }
+		sleep 3
+	done
+	[ "$n" -ge 2 ] || die "forge resumed but acknowledges no validator-set packets"
+	echo "  forge LAUNCHED again and acknowledging validator-set packets"
+}
+
 # --- governance and owner actions ------------------------------------------
 # fill_template FILE KEY=VALUE...: prints FILE with each <KEY> replaced; fails
 # while a <placeholder> remains.
@@ -613,6 +652,8 @@ case "${1:-}" in
 	fee-payouts) fee_payouts ;;
 	key-assignment) key_assignment "${2:-ref}" "${3:-3}" ;;
 	downtime) downtime "${2:-ref}" "${3:-2}" ;;
+	forge-challenge) forge_challenge "${2:-1}" ;;
+	drills) downtime ref 2; forge_challenge 1; relayer_restart ;;
 	propose) shift; propose "$@" ;;
 	owner-exec) shift; owner_exec "$@" ;;
 	check-proposals) check_proposals ;;

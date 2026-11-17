@@ -38,7 +38,7 @@ sources-bump:
 	scripts/sources-bump.sh config/sources.env
 
 # --- the localnet (PROFILE=localnet|devnet selects config/$(PROFILE).env) ---
-.PHONY: up provider consumer smoke delegate relayer-restart fee-payouts key-assignment downtime propose owner-exec check-proposals status stop start clean logs
+.PHONY: up provider consumer smoke delegate relayer-restart fee-payouts key-assignment downtime forge-challenge drills propose owner-exec check-proposals status stop start clean logs
 
 up:
 	PROFILE=$(PROFILE) scripts/testnet.sh up
@@ -72,6 +72,14 @@ key-assignment:
 # make downtime C=ref V=2: a real outage, its accusation, a refused challenge, the slash
 downtime:
 	PROFILE=$(PROFILE) scripts/testnet.sh downtime $(or $(C),ref) $(or $(V),2)
+
+# make forge-challenge V=1: a forged accusation, the challenge, the pause, the resume
+forge-challenge:
+	PROFILE=$(PROFILE) scripts/testnet.sh forge-challenge $(or $(V),1)
+
+# downtime, forge-challenge and relayer-restart in turn
+drills:
+	PROFILE=$(PROFILE) scripts/testnet.sh drills
 
 # make propose F=proposals/resume.json ARGS="consumer-id=1"
 propose:
