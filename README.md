@@ -5,7 +5,7 @@ Docker host today, the private devnet on the team's servers next (see
 `HANDOFF.md`), and possibly a public testnet later. The parameter profile
 (`PROFILE=localnet|devnet`) picks the clocks; the network is the same.
 
-AtomOne leasing its validator set to three consumer chains, all as code: four
+AtomOne leasing its validator set to four consumer chains, all as code: four
 AtomOne validators, and the same four validators running every consumer, each
 consumer with its own ts-relayer. Every chain, relayer and init step runs in
 Docker; `scripts/testnet.sh` only sequences them.
@@ -16,6 +16,7 @@ Docker; `scripts/testnet.sh` only sequences them.
 | ref | `vaas-ref-localnet` | VAAS reference consumer | `ref` | `uref` | RPC 26667, API 1318, gRPC 9092 |
 | gno | `gnoshard-localnet` | gnoshard: reference consumer plus ignite/gnovm | `gnoshard` | `ushard` | RPC 26677, API 1319, gRPC 9093 |
 | photon | `vaas-photon-localnet` | reference consumer with photon fees | `photon` | the `uphoton` voucher bridged from AtomOne | RPC 26687, API 1320, gRPC 9094 |
+| forge | `vaas-forge-localnet` | reference consumer run by `consumer-forge`, which can be told to report a validator absent (localnet only) | `forge` | `uforge` | RPC 26697, API 1321, gRPC 9095 |
 
 Names, denoms and prefixes are in `config/network.env`; the parameters in
 `config/localnet.env` (fast clocks) and `config/devnet.env` (the devnet's
@@ -24,7 +25,7 @@ set); the image sources in `config/sources.env`.
 ## Requirements
 
 - Docker with compose v2, at least 8 GB of memory for Docker (the running
-  network uses about 4.6 GB), 3 GB of disk for images and build cache.
+  network uses about 5 GB), 3 GB of disk for images and build cache.
 - On the host: `make`, `bash`, `jq`, `shasum`.
 - Network access to GitHub: every image builds from a public repository at
   the commit pinned in `config/sources.env`.
@@ -53,11 +54,11 @@ make check-proposals # every governance and owner template decodes against the r
 make status          # heights, consumer phases, liveness, fee pools, relayers
 ```
 
-`make up` takes about ten minutes. Every step prints a `###` line; a failing
+`make up` takes about twelve minutes. Every step prints a `###` line; a failing
 step stops the run with `ERROR:` and the reason.
 
 Other targets: `make logs S=<service>` (for example `S=relayer-gno` or
-`S=atomone-0`), `make provider`, `make consumer C=ref|gno|photon`,
+`S=atomone-0`), `make provider`, `make consumer C=ref|gno|photon|forge`,
 `make stop` (containers stop, `./data` stays), `make start` (resume a stopped
 network), `make clean` (stop and delete `./data`). `PROFILE=devnet make up`
 runs the devnet parameter set instead.
@@ -154,6 +155,7 @@ AtomOne votes with each validator's `val` key in its own home.
 | downtime window | 30 consumer blocks | 600 consumer blocks |
 | downtime challenge window, evidence max age | 3 min, 3 min | 12 h, 6 h |
 | downtime grace after launch | 2 min | 2 h |
+| consumers | ref, gno, photon, forge | ref, gno, photon |
 
 Everything else is the same in both: 72 h unbonding,
 the slashing window that tolerates restarts, the equivocation clock, 60 h

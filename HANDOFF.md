@@ -17,6 +17,9 @@ over unchanged, what has to change, and what must be settled first.
 - The parameter set: `PROFILE=devnet` (`config/devnet.env`) is the devnet
   parameter set, with 5 s blocks, 11-minute epochs, 2-hour votes and a
   spawn 30 minutes after registration.
+- The forge consumer is for the localnet's drills only: `config/devnet.env`
+  leaves it out of `CONSUMERS`, and its long downtime clocks would make the
+  drills take hours.
 
 ## What changes
 
@@ -31,7 +34,7 @@ over unchanged, what has to change, and what must be settled first.
    instead of compose hostnames (`set_peers` in `scripts/node-config.sh`),
    and port 26656 of every chain is reachable between the validator hosts
    (four chains on one host need distinct host ports or one IP per chain).
-3. **An ops host** for the three relayers, the operator keyring (owner,
+3. **An ops host** for the relayers (one per consumer), the operator keyring (owner,
    user, relayer accounts) and the RPC/API endpoints the team uses; ideally
    one non-validating full node per chain there, so queries and relayers do
    not load the validators.

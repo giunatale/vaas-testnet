@@ -1,5 +1,5 @@
 # The VAAS test network as code, in its single-host form (the localnet):
-# four AtomOne validators, three VAAS consumers run by the same four
+# four AtomOne validators, four VAAS consumers run by the same four
 # validators, and one ts-relayer per consumer. Every chain home lives under
 # ./data (gitignored); `make` drives the order (see README).
 # Consumers, relayers and the init tools sit behind profiles, so a plain
@@ -172,6 +172,48 @@ services:
     command: ["consumer", "start", "--home", "/home/node"]
     volumes: ["./data/photon/val3:/home/node"]
 
+
+  forge-0:
+    <<: *node
+    image: ${CONSUMER_IMAGE}
+    hostname: forge-0
+    profiles: [forge]
+    environment: {VAAS_BECH32_PREFIX: "${FORGE_PREFIX}"}
+    command: ["consumer-forge", "start", "--home", "/home/node"]
+    env_file: [{path: ./data/forge/lie.env, required: false}]
+    volumes: ["./data/forge/val0:/home/node"]
+    ports: ["26697:26657", "1321:1317", "9095:9090"]
+
+  forge-1:
+    <<: *node
+    image: ${CONSUMER_IMAGE}
+    hostname: forge-1
+    profiles: [forge]
+    environment: {VAAS_BECH32_PREFIX: "${FORGE_PREFIX}"}
+    command: ["consumer-forge", "start", "--home", "/home/node"]
+    env_file: [{path: ./data/forge/lie.env, required: false}]
+    volumes: ["./data/forge/val1:/home/node"]
+
+  forge-2:
+    <<: *node
+    image: ${CONSUMER_IMAGE}
+    hostname: forge-2
+    profiles: [forge]
+    environment: {VAAS_BECH32_PREFIX: "${FORGE_PREFIX}"}
+    command: ["consumer-forge", "start", "--home", "/home/node"]
+    env_file: [{path: ./data/forge/lie.env, required: false}]
+    volumes: ["./data/forge/val2:/home/node"]
+
+  forge-3:
+    <<: *node
+    image: ${CONSUMER_IMAGE}
+    hostname: forge-3
+    profiles: [forge]
+    environment: {VAAS_BECH32_PREFIX: "${FORGE_PREFIX}"}
+    command: ["consumer-forge", "start", "--home", "/home/node"]
+    env_file: [{path: ./data/forge/lie.env, required: false}]
+    volumes: ["./data/forge/val3:/home/node"]
+
   relayer-ref:
     <<: *relayer
     hostname: relayer-ref
@@ -195,6 +237,14 @@ services:
     volumes:
       - ./data/relayer-photon/db:/data
       - ./data/relayer-photon/keyrings:/root/.local/share/keyrings
+
+  relayer-forge:
+    <<: *relayer
+    hostname: relayer-forge
+    profiles: [relayer-forge]
+    volumes:
+      - ./data/relayer-forge/db:/data
+      - ./data/relayer-forge/keyrings:/root/.local/share/keyrings
 
   # One-shot init containers: `docker compose run --rm <tool> <script>`.
   atomone-tools:
@@ -230,4 +280,13 @@ services:
     entrypoint: ["bash"]
     env_file: [config/network.env, "config/${PROFILE:-localnet}.env"]
     environment: {VAAS_BECH32_PREFIX: "${PHOTON_PREFIX}", CONSUMER: photon}
+    volumes: ["./data:/data", "./scripts:/scripts:ro"]
+
+  forge-tools:
+    image: ${CONSUMER_IMAGE}
+    profiles: [tools]
+    networks: [vaas]
+    entrypoint: ["bash"]
+    env_file: [config/network.env, "config/${PROFILE:-localnet}.env"]
+    environment: {VAAS_BECH32_PREFIX: "${FORGE_PREFIX}", CONSUMER: forge}
     volumes: ["./data:/data", "./scripts:/scripts:ro"]
