@@ -8,6 +8,7 @@
 #   scripts/testnet.sh consumer <c>       register, init, start, relay, declare, fund one consumer
 #   scripts/testnet.sh smoke              delegation reaches every consumer, plus each consumer's own check
 #   scripts/testnet.sh delegate           only the delegation check (repeatable)
+#   scripts/testnet.sh relayer-restart    restart every relayer, then the delegation check
 #   scripts/testnet.sh propose F k=v..    a provider proposal from proposals/, every validator votes yes
 #   scripts/testnet.sh owner-exec C F k=v.. a consumer owner action from proposals/
 #   scripts/testnet.sh check-proposals    every template decodes against the running binaries
@@ -316,6 +317,24 @@ status() {
 	done
 }
 
+# relayer_restart: restarts every relayer container, fails on any error a
+# restarted relayer logs (a lost keyring shows as PermissionDenied), then
+# checks that a new delegation still reaches every consumer through them.
+relayer_restart() {
+	local c since n
+	log "relayers: restart"
+	since="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+	for c in $CONSUMERS; do dc --profile "relayer-$c" restart "relayer-$c"; done
+	sleep 30
+	for c in $CONSUMERS; do
+		[ "$(docker inspect -f '{{.State.Status}}' "vaas-testnet-relayer-$c-1")" = running ] || die "relayer-$c not running"
+		n="$(dc --profile "relayer-$c" logs --since "$since" "relayer-$c" 2>&1 | grep -ciE 'error|denied' || true)"
+		[ "$n" = 0 ] || { dc --profile "relayer-$c" logs --since "$since" "relayer-$c" 2>&1 | grep -iE 'error|denied' | tail -3 >&2; die "relayer-$c logged errors after the restart"; }
+		echo "  relayer-$c running, no errors since the restart"
+	done
+	delegate
+}
+
 # --- governance and owner actions ------------------------------------------
 # fill_template FILE KEY=VALUE...: prints FILE with each <KEY> replaced; fails
 # while a <placeholder> remains.
@@ -418,6 +437,7 @@ case "${1:-}" in
 	register|start_consumer|relayer|declare_clients|fund_pool|wait_vsc) "$1" "${2:?consumer name}" ;;
 	smoke) smoke ;;
 	delegate) delegate ;;
+	relayer-restart) relayer_restart ;;
 	propose) shift; propose "$@" ;;
 	owner-exec) shift; owner_exec "$@" ;;
 	check-proposals) check_proposals ;;

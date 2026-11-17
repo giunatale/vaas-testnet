@@ -111,6 +111,14 @@ the reference consumer, a voucher-paid transfer and a refused native-fee
 transfer on the photon consumer, and the counter realm deployed, called
 twice and rendered on gnoshard.
 
+## Drills
+
+Each drill leaves the network running and can be repeated.
+
+| Target | What happens | About |
+|---|---|---|
+| `make relayer-restart` | Every relayer container restarts; none may log an error, and a new delegation must reach every consumer through them. | 2 min |
+
 Accounts: validator 0's home of each chain (`/home/node` in the `*-0`
 containers) holds the `owner`, `user` and `relayer-<consumer>` keys in a
 `test` keyring; their mnemonics are in `data/keys/*.json`. Governance on

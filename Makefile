@@ -38,7 +38,7 @@ sources-bump:
 	scripts/sources-bump.sh config/sources.env
 
 # --- the localnet (PROFILE=localnet|devnet selects config/$(PROFILE).env) ---
-.PHONY: up provider consumer smoke delegate propose owner-exec check-proposals status stop start clean logs
+.PHONY: up provider consumer smoke delegate relayer-restart propose owner-exec check-proposals status stop start clean logs
 
 up:
 	PROFILE=$(PROFILE) scripts/testnet.sh up
@@ -56,6 +56,10 @@ smoke:
 # A delegation reaches every consumer (repeatable, unlike smoke).
 delegate:
 	PROFILE=$(PROFILE) scripts/testnet.sh delegate
+
+# Restart every relayer, then a delegation must still reach every consumer.
+relayer-restart:
+	PROFILE=$(PROFILE) scripts/testnet.sh relayer-restart
 
 # make propose F=proposals/resume.json ARGS="consumer-id=1"
 propose:
