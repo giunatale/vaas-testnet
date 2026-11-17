@@ -105,11 +105,22 @@ dc exec atomone-0 atomoned query vaasprovider blocks-until-next-epoch --home /ho
 dc --profile gno exec gno-0 gnoshardd query gnovm eval gno.land/r/demo/counter 'Render("")' --home /home/node
 ```
 
-`make smoke` shows the protocol end to end: a delegation on AtomOne changes
-validator 1's power on all three consumers at the next epoch, a transfer on
-the reference consumer, a voucher-paid transfer and a refused native-fee
-transfer on the photon consumer, and the counter realm deployed, called
-twice and rendered on gnoshard.
+`make smoke` shows the protocol end to end, in order:
+
+1. A delegation on AtomOne changes validator 1's power on every consumer at
+   the next epoch.
+2. A transfer on the reference consumer.
+3. On the photon consumer, a transfer paid in the `uphoton` voucher commits
+   and one paid in the native denom is refused.
+4. On gnoshard, the counter realm is deployed, called twice (once with a
+   simulated gas limit) and rendered.
+5. Fee payouts: at the next epoch block every consumer's pool pays
+   `fees_per_block x blocks_per_epoch`, split equally, to every bonded
+   validator's operator account (checked from the balances one block before
+   and at the epoch block).
+
+It runs once per network (the realm can be deployed once); `make delegate`
+and `make fee-payouts` repeat single steps.
 
 ## Drills
 

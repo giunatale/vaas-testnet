@@ -9,6 +9,7 @@
 #   scripts/testnet.sh smoke              delegation reaches every consumer, plus each consumer's own check
 #   scripts/testnet.sh delegate           only the delegation check (repeatable)
 #   scripts/testnet.sh relayer-restart    restart every relayer, then the delegation check
+#   scripts/testnet.sh fee-payouts        an epoch's fee leaves every pool and reaches every validator
 #   scripts/testnet.sh propose F k=v..    a provider proposal from proposals/, every validator votes yes
 #   scripts/testnet.sh owner-exec C F k=v.. a consumer owner action from proposals/
 #   scripts/testnet.sh check-proposals    every template decodes against the running binaries
@@ -292,6 +293,7 @@ smoke() {
 	tx C gno tx gnovm call gno.land/r/demo/counter Increment --from user --keyring-backend test \
 		--chain-id "$GNO_CHAIN_ID" --gas auto --gas-adjustment 1.3 --fees "50000${GNO_DENOM}"
 	echo "  render: $(C gno query gnovm eval gno.land/r/demo/counter 'Render("")' -o json | jq -r .result)"
+	fee_payouts
 	log "smoke: passed"
 }
 
@@ -333,6 +335,41 @@ relayer_restart() {
 		echo "  relayer-$c running, no errors since the restart"
 	done
 	delegate
+}
+
+# --- drills -----------------------------------------------------------------
+val_acct() { V "$1" keys show val -a --keyring-backend test; }
+cid_of() { cat "data/$1.consumer_id"; }
+balance_at() { # address denom height
+	P query bank balances "$1" --height "$3" -o json | jq -r --arg d "$2" '[.balances[] | select(.denom == $d) | .amount][0] // "0"'
+}
+
+# fee_payouts: at the next epoch block every consumer's pool pays its epoch
+# fee (fees_per_block x blocks_per_epoch, split equally) to every bonded
+# validator's operator account.
+fee_payouts() {
+	local E n h H c cid pool fpb share b0 b1 sum=0 i
+	log "fee payouts: at an epoch block every pool pays every bonded validator"
+	E="$(P query vaasprovider params -o json | jq -r '.blocks_per_epoch // .params.blocks_per_epoch')"
+	n="$(P query staking validators -o json | jq '[.validators[] | select(.status == "BOND_STATUS_BONDED")] | length')"
+	h="$(height atomone-0)"; H=$(( (h / E + 1) * E )); [ $(( H - h )) -ge 3 ] || H=$(( H + E ))
+	wait_height atomone-0 $(( H + 1 )) "$PROVIDER_CHAIN_ID (epoch block $H)"
+	for c in $CONSUMERS; do
+		cid="$(cid_of "$c")"
+		pool="$(P query vaasprovider consumer-chain "$cid" -o json | jq -r .fee_pool_address)"
+		fpb="$(P query vaasprovider consumer-fees-per-block "$cid" -o json | jq -r .fees_per_block.amount)"
+		share=$(( fpb * E / n ))
+		b0="$(balance_at "$pool" "$PROVIDER_FEE_DENOM" $(( H - 1 )))"; b1="$(balance_at "$pool" "$PROVIDER_FEE_DENOM" "$H")"
+		[ $(( b0 - b1 )) -eq $(( share * n )) ] || die "$c: pool paid $(( b0 - b1 )), expected $n x $share"
+		echo "  $c: pool paid $n x $share$PROVIDER_FEE_DENOM ($fpb per block x $E blocks)"
+		sum=$(( sum + share ))
+	done
+	for i in $(seq 0 $(( NUM_VALIDATORS - 1 ))); do
+		a="$(val_acct "$i")"
+		b0="$(balance_at "$a" "$PROVIDER_FEE_DENOM" $(( H - 1 )))"; b1="$(balance_at "$a" "$PROVIDER_FEE_DENOM" "$H")"
+		[ $(( b1 - b0 )) -eq "$sum" ] || die "validator $i received $(( b1 - b0 )), expected $sum"
+	done
+	echo "  every validator received $sum$PROVIDER_FEE_DENOM at height $H"
 }
 
 # --- governance and owner actions ------------------------------------------
@@ -438,6 +475,7 @@ case "${1:-}" in
 	smoke) smoke ;;
 	delegate) delegate ;;
 	relayer-restart) relayer_restart ;;
+	fee-payouts) fee_payouts ;;
 	propose) shift; propose "$@" ;;
 	owner-exec) shift; owner_exec "$@" ;;
 	check-proposals) check_proposals ;;
