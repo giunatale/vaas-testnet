@@ -143,10 +143,13 @@ AtomOne votes with each validator's `val` key in its own home.
 | epoch (`blocks_per_epoch`) | 20 blocks (about 45 s) | 120 blocks (about 11 min) |
 | gov voting period | 120 s | 7200 s |
 | spawn after registration | immediate | 30 min |
+| downtime window | 30 consumer blocks | 600 consumer blocks |
+| downtime challenge window, evidence max age | 3 min, 3 min | 12 h, 6 h |
+| downtime grace after launch | 2 min | 2 h |
 
 Everything else is the same in both: 72 h unbonding,
-the slashing window that tolerates restarts, the downtime and equivocation
-clocks, 60 h consumer unbonding, 1 h safe mode, `RELAY_MAX_AGE_*` 3600 s,
+the slashing window that tolerates restarts, the equivocation clock, 60 h
+consumer unbonding, 1 h safe mode, `RELAY_MAX_AGE_*` 3600 s,
 `min-retain-blocks = 0` on every node so downtime challenges can read
 commits. The AtomOne image accepts voting periods down to 60 s
 (`MIN_VOTING_PERIOD` in `config/sources.env`).
