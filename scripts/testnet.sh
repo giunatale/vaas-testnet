@@ -10,6 +10,7 @@
 #   scripts/testnet.sh delegate           only the delegation check (repeatable)
 #   scripts/testnet.sh relayer-restart    restart every relayer, then the delegation check
 #   scripts/testnet.sh fee-payouts        an epoch's fee leaves every pool and reaches every validator
+#   scripts/testnet.sh key-assignment [C I] validator I (3) assigns a fresh key on consumer C (ref)
 #   scripts/testnet.sh propose F k=v..    a provider proposal from proposals/, every validator votes yes
 #   scripts/testnet.sh owner-exec C F k=v.. a consumer owner action from proposals/
 #   scripts/testnet.sh check-proposals    every template decodes against the running binaries
@@ -294,6 +295,7 @@ smoke() {
 		--chain-id "$GNO_CHAIN_ID" --gas auto --gas-adjustment 1.3 --fees "50000${GNO_DENOM}"
 	echo "  render: $(C gno query gnovm eval gno.land/r/demo/counter 'Render("")' -o json | jq -r .result)"
 	fee_payouts
+	key_assignment ref 3
 	log "smoke: passed"
 }
 
@@ -338,10 +340,20 @@ relayer_restart() {
 }
 
 # --- drills -----------------------------------------------------------------
+val_hex() { jq -r .address "data/atomone/val$1/config/priv_validator_key.json"; }   # provider consensus address, hex
 val_acct() { V "$1" keys show val -a --keyring-backend test; }
 cid_of() { cat "data/$1.consumer_id"; }
+b64hex() { dc exec -T atomone-0 sh -c "echo '$1' | base64 -d | od -An -tx1 | tr -d ' \n'" | tr '[:lower:]' '[:upper:]'; }
 balance_at() { # address denom height
 	P query bank balances "$1" --height "$3" -o json | jq -r --arg d "$2" '[.balances[] | select(.denom == $d) | .amount][0] // "0"'
+}
+pending_windows() { # cid hex: the window start of every pending accusation naming hex
+	local e
+	while read -r e; do
+		[ -n "$e" ] || continue
+		[ "$(b64hex "$(jq -r .provider_cons_addr <<<"$e")")" = "$2" ] && jq -r .window_start_height <<<"$e"
+	done < <(P query vaasprovider pending-downtime-slashes "$1" -o json | jq -c '.slashes[]?')
+	return 0
 }
 
 # fee_payouts: at the next epoch block every consumer's pool pays its epoch
@@ -370,6 +382,40 @@ fee_payouts() {
 		[ $(( b1 - b0 )) -eq "$sum" ] || die "validator $i received $(( b1 - b0 )), expected $sum"
 	done
 	echo "  every validator received $sum$PROVIDER_FEE_DENOM at height $H"
+}
+
+# key_assignment C I: validator I assigns a fresh consensus key on consumer
+# C; once C's validator set carries it, the node switches to it and must
+# keep signing without an accusation.
+key_assignment() {
+	local c="${1:-ref}" i="${2:-3}" cid bin pub newhex oldhex addrs ok=0 since
+	cid="$(cid_of "$c")"; bin="$(up_var "$c" BINARY)"
+	log "key assignment: validator $i assigns a fresh consensus key on $c"
+	dc --profile "$c" exec -T "$c-$i" sh -c "rm -rf /tmp/keygen && $bin init keygen --chain-id keygen --home /tmp/keygen >/dev/null 2>&1"
+	pub="$(dc --profile "$c" exec -T "$c-$i" "$bin" comet show-validator --home /tmp/keygen 2>/dev/null || dc --profile "$c" exec -T "$c-$i" "$bin" tendermint show-validator --home /tmp/keygen)"
+	newhex="$(dc --profile "$c" exec -T "$c-$i" cat /tmp/keygen/config/priv_validator_key.json | jq -r .address)"
+	oldhex="$(jq -r .address "data/$c/val$i/config/priv_validator_key.json")"
+	tx V "$i" tx vaasprovider assign-consensus-key "$cid" "$pub" --from val --keyring-backend test \
+		--chain-id "$PROVIDER_CHAIN_ID" --gas auto --gas-adjustment 1.5 --fees "30000${PROVIDER_FEE_DENOM}"
+	for _ in $(seq 1 $(( BLOCKS_PER_EPOCH * 3 ))); do
+		addrs=",$(dc --profile "$c" exec -T "$c-0" curl -s localhost:26657/validators | jq -r '[.result.validators[].address] | join(",")'),"
+		case "$addrs" in *",$newhex,"*) case "$addrs" in *",$oldhex,"*) ;; *) ok=1; break ;; esac ;; esac
+		sleep 3
+	done
+	[ "$ok" = 1 ] || die "$c: the validator set never switched from $oldhex to $newhex"
+	echo "  $c's validator set: $oldhex replaced by $newhex"
+	dc --profile "$c" exec -T "$c-$i" cat /tmp/keygen/config/priv_validator_key.json > "data/$c/val$i/config/priv_validator_key.json"
+	dc --profile "$c" restart "$c-$i" >/dev/null 2>&1
+	ok=0
+	for _ in $(seq 1 30); do
+		sleep 3
+		dc --profile "$c" exec -T "$c-0" curl -s localhost:26657/commit | jq -r '.result.signed_header.commit.signatures[].validator_address' | grep -qx "$newhex" && { ok=1; break; }
+	done
+	[ "$ok" = 1 ] || die "$c-$i does not sign with the new key"
+	echo "  $c-$i signs with the new key"
+	sleep $(( DOWNTIME_SIGNED_BLOCKS_WINDOW * ${TIMEOUT_COMMIT%s} + 45 ))
+	[ -z "$(pending_windows "$cid" "$(val_hex "$i")")" ] || die "$c: validator $i was accused of downtime across the key switch"
+	echo "  no downtime accusation across the switch"
 }
 
 # --- governance and owner actions ------------------------------------------
@@ -476,6 +522,7 @@ case "${1:-}" in
 	delegate) delegate ;;
 	relayer-restart) relayer_restart ;;
 	fee-payouts) fee_payouts ;;
+	key-assignment) key_assignment "${2:-ref}" "${3:-3}" ;;
 	propose) shift; propose "$@" ;;
 	owner-exec) shift; owner_exec "$@" ;;
 	check-proposals) check_proposals ;;

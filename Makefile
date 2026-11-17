@@ -38,7 +38,7 @@ sources-bump:
 	scripts/sources-bump.sh config/sources.env
 
 # --- the localnet (PROFILE=localnet|devnet selects config/$(PROFILE).env) ---
-.PHONY: up provider consumer smoke delegate relayer-restart fee-payouts propose owner-exec check-proposals status stop start clean logs
+.PHONY: up provider consumer smoke delegate relayer-restart fee-payouts key-assignment propose owner-exec check-proposals status stop start clean logs
 
 up:
 	PROFILE=$(PROFILE) scripts/testnet.sh up
@@ -64,6 +64,10 @@ relayer-restart:
 # An epoch's fee leaves every pool and reaches every validator.
 fee-payouts:
 	PROFILE=$(PROFILE) scripts/testnet.sh fee-payouts
+
+# make key-assignment C=ref V=3
+key-assignment:
+	PROFILE=$(PROFILE) scripts/testnet.sh key-assignment $(or $(C),ref) $(or $(V),3)
 
 # make propose F=proposals/resume.json ARGS="consumer-id=1"
 propose:

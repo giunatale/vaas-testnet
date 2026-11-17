@@ -118,9 +118,12 @@ dc --profile gno exec gno-0 gnoshardd query gnovm eval gno.land/r/demo/counter '
    `fees_per_block x blocks_per_epoch`, split equally, to every bonded
    validator's operator account (checked from the balances one block before
    and at the epoch block).
+6. Key assignment: validator 3 assigns a fresh consensus key on the
+   reference consumer; once the consumer's validator set carries it, the
+   node switches to it, signs with it, and is not accused of downtime.
 
-It runs once per network (the realm can be deployed once); `make delegate`
-and `make fee-payouts` repeat single steps.
+It runs once per network (the realm can be deployed once); `make delegate`,
+`make fee-payouts` and `make key-assignment C= V=` repeat single steps.
 
 ## Drills
 
@@ -173,6 +176,7 @@ commits. The AtomOne image accepts voting periods down to 60 s
 
 ## Known limits
 
-- Consumer nodes sign with their validator's AtomOne consensus key (no key
-  assignment). Fine on a localnet; the devnet should assign consumer keys.
+- Consumer nodes sign with their validator's AtomOne consensus key, except
+  where `make key-assignment` (part of the smoke test) switched one to an
+  assigned key. The devnet should assign every consumer key.
 - The VAAS and AtomOne sources are integration branches, not releases.
