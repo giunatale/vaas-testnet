@@ -33,8 +33,8 @@ set); the image sources in `config/sources.env`.
 | Image | Source | Branch | Commit |
 |---|---|---|---|
 | `vaas-testnet/atomone` | AtomOne wired as the VAAS provider | `vaas-pre-mvp` (giunatale/atomone) | 5b177839 |
-| `vaas-testnet/vaas-consumer` | VAAS with every open pull request merged | `pre-mvp` (giunatale/vaas) | fa8d1585 |
-| `vaas-testnet/gnoshard` | gnoshard (x/gnovm from ignite/gnovm `main`) | `main` (giunatale/gnoshard) | 1baa7399 |
+| `vaas-testnet/vaas-consumer` | VAAS with every open pull request merged | `pre-mvp` (giunatale/vaas) | e46f6226 |
+| `vaas-testnet/gnoshard` | gnoshard (x/gnovm from ignite/gnovm `main`) | `main` (giunatale/gnoshard) | c24a9f3e |
 | `vaas-testnet/ts-relayer` | ibc-v2-ts-relayer | `main` (allinbits/ibc-v2-ts-relayer) | a49e8141 |
 
 `make sources-bump` moves every pinned commit to the head of its branch;
